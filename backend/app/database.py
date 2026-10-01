@@ -67,3 +67,12 @@ def save_artwork(artwork_id: str, title: str, creator: str, sha256: str, phash: 
         "image_path": image_path,
         "created_at": created_at
     }
+
+
+def get_all_artworks() -> list[dict]:
+    """Retrieve all registered artwork records from SQLite database."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, title, creator, sha256, phash, image_path, created_at FROM artworks")
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]

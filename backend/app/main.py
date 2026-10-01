@@ -5,8 +5,19 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import UPLOADS_DIR, generate_artwork_id, init_db, save_artwork
-from app.fingerprint import calculate_phash, calculate_sha256
+from app.database import (
+    UPLOADS_DIR,
+    generate_artwork_id,
+    get_all_artworks,
+    init_db,
+    save_artwork,
+)
+from app.fingerprint import (
+    calculate_phash,
+    calculate_sha256,
+    calculate_similarity_score,
+    compute_phash_distance,
+)
 
 
 @asynccontextmanager
@@ -20,7 +31,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Ghost Art API",
     description="Backend API for Ghost Art MVP",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -121,9 +132,70 @@ async def register_artwork(
 
 
 @app.post("/trace")
-def trace_artwork():
-    """Placeholder endpoint for artwork tracing (logic to be implemented in future parts)."""
+async def trace_artwork(
+    file: UploadFile = File(...),
+    limit: int = 5,
+):
+    """
+    Trace a suspected artwork image:
+    1. Read and validate uploaded image file
+    2. Compute perceptual pHash for suspected artwork
+    3. Retrieve all registered artworks from SQLite
+    4. Compute pHash Hamming distance and visual similarity score
+    5. Return candidates sorted from highest to lowest similarity
+    """
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="Image file is required")
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    # Compute pHash for suspected artwork and validate image format
+    try:
+        query_phash = calculate_phash(contents)
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is not a valid image format"
+        )
+
+    # Retrieve all registered artworks from SQLite
+    artworks = get_all_artworks()
+    if not artworks:
+        return {
+            "status": "success",
+            "message": "No registered artworks found in database",
+            "query_phash": query_phash,
+            "candidates": []
+        }
+
+    # Calculate pHash Hamming distance and visual similarity score for each candidate
+    candidates = []
+    for art in artworks:
+        dist = compute_phash_distance(query_phash, art["phash"])
+        score = calculate_similarity_score(dist)
+        candidates.append({
+            "id": art["id"],
+            "title": art["title"],
+            "creator": art["creator"],
+            "similarity_score": score,
+            "phash_distance": dist,
+            "image_path": art["image_path"],
+            "sha256": art["sha256"],
+            "phash": art["phash"],
+            "created_at": art["created_at"],
+        })
+
+    # Sort candidates by visual similarity score descending
+    candidates.sort(key=lambda item: item["similarity_score"], reverse=True)
+
+    # Limit to top N candidates
+    top_candidates = candidates[:max(1, limit)]
+
     return {
-        "status": "placeholder",
-        "message": "Artwork trace endpoint placeholder"
+        "status": "success",
+        "message": f"Found {len(top_candidates)} candidate match(es)",
+        "query_phash": query_phash,
+        "candidates": top_candidates
     }
