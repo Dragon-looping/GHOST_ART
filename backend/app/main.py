@@ -18,6 +18,7 @@ from app.fingerprint import (
     calculate_similarity_score,
     compute_phash_distance,
 )
+from app.gemini_service import analyze_artwork_image, compare_artwork_images
 
 
 @asynccontextmanager
@@ -31,7 +32,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Ghost Art API",
     description="Backend API for Ghost Art MVP",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -106,7 +107,6 @@ async def register_artwork(
             detail=f"Failed to save image file: {str(e)}"
         )
 
-    # Record timestamp and store metadata in SQLite
     created_at = datetime.now(timezone.utc).isoformat()
     try:
         artwork_record = save_artwork(
@@ -151,7 +151,6 @@ async def trace_artwork(
     if not contents:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
 
-    # Compute pHash for suspected artwork and validate image format
     try:
         query_phash = calculate_phash(contents)
     except Exception:
@@ -160,7 +159,6 @@ async def trace_artwork(
             detail="Uploaded file is not a valid image format"
         )
 
-    # Retrieve all registered artworks from SQLite
     artworks = get_all_artworks()
     if not artworks:
         return {
@@ -170,7 +168,6 @@ async def trace_artwork(
             "candidates": []
         }
 
-    # Calculate pHash Hamming distance and visual similarity score for each candidate
     candidates = []
     for art in artworks:
         dist = compute_phash_distance(query_phash, art["phash"])
@@ -187,10 +184,7 @@ async def trace_artwork(
             "created_at": art["created_at"],
         })
 
-    # Sort candidates by visual similarity score descending
     candidates.sort(key=lambda item: item["similarity_score"], reverse=True)
-
-    # Limit to top N candidates
     top_candidates = candidates[:max(1, limit)]
 
     return {
@@ -199,3 +193,76 @@ async def trace_artwork(
         "query_phash": query_phash,
         "candidates": top_candidates
     }
+
+
+@app.post("/analyze-artwork")
+async def analyze_artwork_endpoint(
+    file: UploadFile = File(...),
+):
+    """
+    Analyze an uploaded artwork image using Google Gemini API:
+    1. Describes visual content, style, and subject matter
+    2. Identifies key distinctive visual elements
+    Note: Does NOT make legal conclusions regarding copyright or ownership.
+    """
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="Image file is required")
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    content_type = file.content_type or "image/png"
+
+    try:
+        analysis = analyze_artwork_image(contents, mime_type=content_type)
+        return {
+            "status": "success",
+            "analysis": analysis
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=503, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/compare-artworks")
+async def compare_artworks_endpoint(
+    original_file: UploadFile = File(...),
+    candidate_file: UploadFile = File(...),
+):
+    """
+    Compare an original artwork against a candidate artwork using Google Gemini API:
+    1. Compares visual similarities and differences
+    2. Identifies visible modifications (cropping, recoloring, filters, added text, etc.)
+    Note: Does NOT make legal conclusions regarding copyright infringement.
+    """
+    if not original_file or not original_file.filename:
+        raise HTTPException(status_code=400, detail="Original artwork image file is required")
+    if not candidate_file or not candidate_file.filename:
+        raise HTTPException(status_code=400, detail="Candidate artwork image file is required")
+
+    orig_contents = await original_file.read()
+    cand_contents = await candidate_file.read()
+
+    if not orig_contents or not cand_contents:
+        raise HTTPException(status_code=400, detail="Uploaded image files cannot be empty")
+
+    orig_mime = original_file.content_type or "image/png"
+    cand_mime = candidate_file.content_type or "image/png"
+
+    try:
+        comparison = compare_artwork_images(
+            original_bytes=orig_contents,
+            original_mime=orig_mime,
+            candidate_bytes=cand_contents,
+            candidate_mime=cand_mime
+        )
+        return {
+            "status": "success",
+            "comparison": comparison
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=503, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

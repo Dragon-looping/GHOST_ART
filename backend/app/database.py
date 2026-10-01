@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-# Paths configuration relative to project root
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "data"
 UPLOADS_DIR = DATA_DIR / "uploads"

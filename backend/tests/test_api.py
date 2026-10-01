@@ -5,9 +5,15 @@ import sqlite3
 import pytest
 from pathlib import Path
 from PIL import Image
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 
-from app.main import health_check, register_artwork, trace_artwork
+from app.main import (
+    analyze_artwork_endpoint,
+    compare_artworks_endpoint,
+    health_check,
+    register_artwork,
+    trace_artwork,
+)
 from app.database import DB_PATH, DATA_DIR, UPLOADS_DIR, init_db
 
 
@@ -77,12 +83,10 @@ async def test_register_artwork():
 @pytest.mark.asyncio
 async def test_trace_artwork():
     """Test tracing a registered artwork to verify matching and similarity scoring."""
-    # 1. Register an artwork
     img_bytes = create_test_image("yellow")
     reg_upload = UploadFile(filename="original.png", file=io.BytesIO(img_bytes))
     await register_artwork(file=reg_upload, title="Original Yellow", creator="Artist A")
 
-    # 2. Trace the exact same image
     trace_upload = UploadFile(filename="suspected_copy.png", file=io.BytesIO(img_bytes))
     response = await trace_artwork(file=trace_upload, limit=5)
 
@@ -108,3 +112,24 @@ async def test_invalid_image_upload():
     invalid_file_trace = UploadFile(filename="test.txt", file=io.BytesIO(b"Not an image file"))
     with pytest.raises(Exception):
         await trace_artwork(file=invalid_file_trace)
+
+
+@pytest.mark.asyncio
+async def test_gemini_missing_api_key_handling(monkeypatch):
+    """Test that analyze and compare endpoints return 503 when GEMINI_API_KEY is not configured."""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    img_bytes = create_test_image("purple")
+    upload_analyze = UploadFile(filename="art1.png", file=io.BytesIO(img_bytes))
+    orig_compare = UploadFile(filename="art1.png", file=io.BytesIO(img_bytes))
+    cand_compare = UploadFile(filename="art2.png", file=io.BytesIO(img_bytes))
+
+    with pytest.raises(HTTPException) as exc1:
+        await analyze_artwork_endpoint(file=upload_analyze)
+    assert exc1.value.status_code == 503
+    assert "GEMINI_API_KEY is not configured" in exc1.value.detail
+
+    with pytest.raises(HTTPException) as exc2:
+        await compare_artworks_endpoint(original_file=orig_compare, candidate_file=cand_compare)
+    assert exc2.value.status_code == 503
+    assert "GEMINI_API_KEY is not configured" in exc2.value.detail
