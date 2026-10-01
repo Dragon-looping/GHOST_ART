@@ -1,7 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { UploadCloud, Image as ImageIcon, X, ArrowRight, Zap, ShieldAlert } from 'lucide-react';
-import type { RegisteredArtwork } from '../types/api';
-import { getArtworkImageUrl } from '../services/api';
 
 interface UploadZoneProps {
   selectedFile: File | null;
@@ -10,8 +8,6 @@ interface UploadZoneProps {
   onClear: () => void;
   onTrace: () => void;
   isTracing: boolean;
-  sampleArtworks?: RegisteredArtwork[];
-  onSelectSample?: (art: RegisteredArtwork) => void;
 }
 
 export const UploadZone: React.FC<UploadZoneProps> = ({
@@ -21,8 +17,6 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
   onClear,
   onTrace,
   isTracing,
-  sampleArtworks = [],
-  onSelectSample,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragError, setDragError] = useState<string | null>(null);
@@ -196,47 +190,6 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Preset Demo Samples (Quick testing for hackathon judges) */}
-      {sampleArtworks.length > 0 && !selectedFile && (
-        <div className="mt-5 p-4 rounded-xl bg-slate-900/30 border border-white/[0.05]">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <Zap className="w-3.5 h-3.5 text-purple-400" />
-              <span>Quick Demo: Test with a Registered Reference Artwork</span>
-            </div>
-            <span className="text-[11px] text-slate-500 font-mono">1-Click Load</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {sampleArtworks.slice(0, 3).map((sample) => (
-              <button
-                key={sample.id}
-                onClick={() => onSelectSample?.(sample)}
-                className="flex items-center gap-3 p-2 rounded-lg bg-black/40 hover:bg-purple-950/30 border border-white/[0.06] hover:border-purple-500/40 text-left transition-all group"
-              >
-                <img
-                  src={getArtworkImageUrl(sample)}
-                  alt={sample.title}
-                  className="w-10 h-10 rounded-md object-cover bg-black border border-white/10 shrink-0"
-                  onError={(e) => {
-                    // Fallback placeholder if image load fails
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium text-slate-200 truncate group-hover:text-purple-300">
-                    {sample.title}
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-500 truncate">
-                    {sample.id} • {sample.creator}
-                  </div>
-                </div>
-              </button>
-            ))}
           </div>
         </div>
       )}

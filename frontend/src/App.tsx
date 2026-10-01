@@ -190,8 +190,6 @@ export function App() {
                 onClear={handleClear}
                 onTrace={handleTrace}
                 isTracing={isTracing}
-                sampleArtworks={artworks}
-                onSelectSample={handleSelectSample}
               />
             </div>
 
