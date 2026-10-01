@@ -54,7 +54,7 @@ def test_health_endpoint():
 
 @pytest.mark.asyncio
 async def test_empty_database_trace():
-    """Test tracing an artwork when no artworks are registered in the database."""
+    """Test tracing an artwork when no artworks are registered in the database (No candidate match)."""
     img_bytes = create_test_image("red")
     upload = UploadFile(filename="suspected.png", file=io.BytesIO(img_bytes))
 
@@ -63,6 +63,8 @@ async def test_empty_database_trace():
     assert response["message"] == "No registered artworks found in database"
     assert "query_phash" in response
     assert response["candidates"] == []
+    assert response["gemini_analysis"] is None
+    assert response["gemini_status"] == "No registered artwork candidates available for comparison"
 
 
 @pytest.mark.asyncio
@@ -81,24 +83,62 @@ async def test_register_artwork():
 
 
 @pytest.mark.asyncio
-async def test_trace_artwork():
-    """Test tracing a registered artwork to verify matching and similarity scoring."""
-    img_bytes = create_test_image("yellow")
-    reg_upload = UploadFile(filename="original.png", file=io.BytesIO(img_bytes))
-    await register_artwork(file=reg_upload, title="Original Yellow", creator="Artist A")
+async def test_trace_with_candidate_match_and_mocked_gemini(monkeypatch):
+    """Test /trace with a registered candidate match and mocked Gemini visual comparison response."""
+    # Mock compare_artwork_images
+    mock_comparison = {
+        "summary": "The candidate image shows strong visual similarities to the registered original.",
+        "similarities": ["Identical blue square composition", "Matching color palette"],
+        "differences": ["Minor scaling differences"],
+        "possible_modifications": ["Slight cropping"]
+    }
+    monkeypatch.setattr("app.main.compare_artwork_images", lambda **kwargs: mock_comparison)
 
+    # 1. Register original artwork
+    img_bytes = create_test_image("blue")
+    reg_upload = UploadFile(filename="original_blue.png", file=io.BytesIO(img_bytes))
+    await register_artwork(file=reg_upload, title="Blue Square", creator="Artist B")
+
+    # 2. Trace suspected artwork
     trace_upload = UploadFile(filename="suspected_copy.png", file=io.BytesIO(img_bytes))
     response = await trace_artwork(file=trace_upload, limit=5)
 
     assert response["status"] == "success"
     assert len(response["candidates"]) == 1
+    assert response["candidates"][0]["id"] == "ART-001"
+    assert response["candidates"][0]["similarity_score"] == 100.0
 
-    candidate = response["candidates"][0]
-    assert candidate["id"] == "ART-001"
-    assert candidate["title"] == "Original Yellow"
-    assert candidate["creator"] == "Artist A"
-    assert candidate["similarity_score"] == 100.0
-    assert candidate["phash_distance"] == 0
+    # Gemini integration assertions
+    assert response["gemini_status"] == "completed"
+    assert response["gemini_analysis"] == mock_comparison
+    assert response["gemini_analysis"]["summary"] == mock_comparison["summary"]
+
+
+@pytest.mark.asyncio
+async def test_trace_when_gemini_unavailable(monkeypatch):
+    """Test /trace when Gemini is unavailable (e.g. missing API key or network error). Fingerprinting remains intact."""
+    def mock_failing_gemini(**kwargs):
+        raise ValueError("GEMINI_API_KEY is not configured")
+
+    monkeypatch.setattr("app.main.compare_artwork_images", mock_failing_gemini)
+
+    # 1. Register original artwork
+    img_bytes = create_test_image("yellow")
+    reg_upload = UploadFile(filename="original_yellow.png", file=io.BytesIO(img_bytes))
+    await register_artwork(file=reg_upload, title="Yellow Square", creator="Artist Y")
+
+    # 2. Trace suspected artwork
+    trace_upload = UploadFile(filename="suspected_yellow.png", file=io.BytesIO(img_bytes))
+    response = await trace_artwork(file=trace_upload, limit=5)
+
+    assert response["status"] == "success"
+    assert len(response["candidates"]) == 1
+    assert response["candidates"][0]["id"] == "ART-001"
+    assert response["candidates"][0]["similarity_score"] == 100.0
+
+    # Verify Gemini error handling without system crash
+    assert response["gemini_analysis"] is None
+    assert "Gemini analysis unavailable" in response["gemini_status"]
 
 
 @pytest.mark.asyncio

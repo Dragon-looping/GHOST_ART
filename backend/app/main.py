@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Ghost Art API",
     description="Backend API for Ghost Art MVP",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
@@ -140,9 +140,9 @@ async def trace_artwork(
     Trace a suspected artwork image:
     1. Read and validate uploaded image file
     2. Compute perceptual pHash for suspected artwork
-    3. Retrieve all registered artworks from SQLite
-    4. Compute pHash Hamming distance and visual similarity score
-    5. Return candidates sorted from highest to lowest similarity
+    3. Retrieve registered artworks from SQLite and compute similarity scores
+    4. Rank candidates descending by visual similarity
+    5. Perform Gemini visual comparison on top candidate if available
     """
     if not file or not file.filename:
         raise HTTPException(status_code=400, detail="Image file is required")
@@ -165,7 +165,9 @@ async def trace_artwork(
             "status": "success",
             "message": "No registered artworks found in database",
             "query_phash": query_phash,
-            "candidates": []
+            "candidates": [],
+            "gemini_analysis": None,
+            "gemini_status": "No registered artwork candidates available for comparison"
         }
 
     candidates = []
@@ -187,11 +189,51 @@ async def trace_artwork(
     candidates.sort(key=lambda item: item["similarity_score"], reverse=True)
     top_candidates = candidates[:max(1, limit)]
 
+    # Gemini visual comparison on top candidate
+    gemini_analysis = None
+    gemini_status = "Not attempted"
+
+    if top_candidates:
+        top_cand = top_candidates[0]
+        orig_image_path = Path(top_cand["image_path"])
+
+        if orig_image_path.exists():
+            try:
+                with open(orig_image_path, "rb") as f:
+                    orig_bytes = f.read()
+
+                suffix = orig_image_path.suffix.lower()
+                mime_map = {
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".webp": "image/webp",
+                    ".gif": "image/gif",
+                    ".bmp": "image/bmp"
+                }
+                orig_mime = mime_map.get(suffix, "image/png")
+                query_mime = file.content_type or "image/png"
+
+                gemini_analysis = compare_artwork_images(
+                    original_bytes=orig_bytes,
+                    original_mime=orig_mime,
+                    candidate_bytes=contents,
+                    candidate_mime=query_mime
+                )
+                gemini_status = "completed"
+            except Exception as e:
+                gemini_analysis = None
+                gemini_status = f"Gemini analysis unavailable: {str(e)}"
+        else:
+            gemini_status = "Original artwork image file not found on disk"
+
     return {
         "status": "success",
         "message": f"Found {len(top_candidates)} candidate match(es)",
         "query_phash": query_phash,
-        "candidates": top_candidates
+        "candidates": top_candidates,
+        "gemini_analysis": gemini_analysis,
+        "gemini_status": gemini_status
     }
 
 

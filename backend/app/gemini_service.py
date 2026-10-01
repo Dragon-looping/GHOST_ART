@@ -55,7 +55,7 @@ def analyze_artwork_image(image_bytes: bytes, mime_type: str = "image/png") -> d
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             contents=[image_part, prompt],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -111,7 +111,7 @@ def compare_artwork_images(
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             contents=["Image 1 (Original Artwork):", orig_part, "Image 2 (Candidate Artwork):", cand_part, prompt],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
