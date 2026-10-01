@@ -1,454 +1,372 @@
-# 👻 Ghost Art
+Absolutely. Since your current repo has the **FastAPI + SQLite + pHash/SHA-256 + Gemini backend** and the React frontend is being built, use this as the `README.md`:
 
-### AI-Powered Artwork Provenance & Ownership Verification
+````markdown
+# GHOST ART 👻🎨
 
-Ghost Art is an AI-powered artwork provenance system designed to help artists trace how their original artwork is reused, modified, or reposted across digital platforms.
+### AI-Powered Artwork Provenance & Tracing Platform
 
-The system combines **Google Gemini**, **visual similarity analysis**, **provenance graphs**, **cryptographic commitments**, and **Zero-Knowledge (ZK) proofs** to create a privacy-preserving way of establishing the relationship between an artist's original work and its online derivatives.
+GHOST ART is an AI-powered artwork provenance and tracing platform designed to help artists identify potential copies, reposts, and visually modified versions of their original artwork.
 
----
-
-## 🚨 The Problem
-
-Digital artwork can be:
-
-* Cropped or resized
-* Filtered or recolored
-* Heavily edited
-* Reposted without attribution
-* Modified using AI
-* Combined with other artwork
-
-Traditional reverse-image search often struggles when an artwork has been significantly modified.
-
-Artists need a way to answer:
-
-> **"Is this artwork derived from my original work, and can I prove that I own the original without publicly revealing it?"**
+The system combines **cryptographic fingerprinting, perceptual hashing, database-based candidate retrieval, and Google Gemini visual analysis** to create an explainable artwork tracing workflow.
 
 ---
 
-## 💡 Our Solution
+## 🚀 Problem
 
-Ghost Art creates a **digital provenance trail** for artwork.
+Digital artwork can be copied, cropped, recolored, filtered, or otherwise modified and reposted online.
 
-An artist can register an original artwork and receive a cryptographic commitment representing it.
+Traditional file hashes fail when an image is modified because even a tiny change produces a completely different hash.
 
-When another artwork is submitted for analysis, Ghost Art:
+GHOST ART addresses this by combining exact fingerprinting with perceptual visual analysis.
 
-1. Analyzes the artwork using **Google Gemini**
-2. Extracts visual and semantic characteristics
-3. Performs visual similarity analysis
-4. Compares the submitted artwork against registered originals
-5. Identifies possible transformations such as cropping, recoloring, filtering, or AI modification
-6. Builds a provenance relationship between the original and derivative
-7. Uses cryptographic commitments and ZK concepts to support privacy-preserving ownership verification
+---
+
+## 💡 How GHOST ART Works
+
+```text
+                    Artwork Upload
+                         │
+                         ▼
+                  FastAPI Backend
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+       SHA-256 Fingerprint      Perceptual Hash
+              │                     │
+              └──────────┬──────────┘
+                         ▼
+                  SQLite Database
+                         │
+                         ▼
+              Candidate Match Search
+                         │
+                         ▼
+                 Top Candidate Found
+                         │
+                         ▼
+                Google Gemini Analysis
+                         │
+                         ▼
+          Similarities / Differences /
+           Possible Modifications
+                         │
+                         ▼
+                 Final Trace Result
+````
 
 ---
 
 ## ✨ Key Features
 
-### 🎨 Artwork Analysis
+### 🔐 Artwork Fingerprinting
 
-Upload an artwork and analyze:
+Each registered artwork is processed using:
 
-* Visual composition
-* Objects and subjects
-* Style
-* Color characteristics
-* Semantic content
-* Possible transformations
+* SHA-256 for exact file fingerprinting
+* Perceptual hashing (pHash) for visual similarity detection
 
-### 🔍 Similarity Detection
+### 🔎 Candidate Detection
 
-Compare two artworks and generate a similarity assessment based on their visual characteristics.
+The perceptual hash allows the system to identify visually similar registered artworks even when the uploaded image has been modified.
 
-The system can identify relationships even when the derivative has been modified.
+### 🤖 Gemini Visual Analysis
 
-### 🧬 Provenance Graph
+Google Gemini analyzes the uploaded artwork and the identified candidate to provide:
 
-Ghost Art represents artwork relationships as a graph:
+* Visual similarities
+* Visual differences
+* Possible modifications
+* Human-readable analysis
 
-```text
-Original Artwork
-       │
-       ├── Crop
-       │
-       ├── Recolor
-       │
-       ├── Filter
-       │
-       └── AI Modification
-              │
-              ▼
-        Detected Derivative
-```
+Gemini is used as a visual analysis and explanation layer, not as a legal copyright decision-maker.
 
-This creates an understandable history of how artwork can evolve.
+### 🗄️ Artwork Database
 
-### 🔐 Privacy-Preserving Ownership
+Registered artwork metadata and fingerprint information are stored in SQLite.
 
-Instead of requiring an artist to publicly expose their original artwork, Ghost Art uses a **cryptographic commitment** concept.
+### ⚡ FastAPI Backend
 
-A commitment can act as a digital fingerprint of the original while keeping the underlying private data hidden.
+The backend exposes REST APIs for:
 
-### 🕵️ Zero-Knowledge Verification
+* Artwork registration
+* Artwork tracing
+* Individual Gemini analysis
+* Artwork comparison
+* Health checking
 
-Ghost Art incorporates the concept of **Zero-Knowledge proofs** to allow an artist to demonstrate possession of the original corresponding to a registered commitment without directly revealing the private original.
+### 📊 Explainable Results
+
+Instead of simply returning a similarity number, GHOST ART combines fingerprint evidence with Gemini's visual observations to make the result easier to understand.
 
 ---
 
-## 🤖 Role of Google Gemini
-
-Google Gemini is a core part of the analysis pipeline.
-
-Gemini is used for multimodal artwork understanding, including:
-
-* Image interpretation
-* Object and subject identification
-* Semantic description
-* Style and composition analysis
-* Transformation reasoning
-* Comparing characteristics between artworks
-* Generating human-readable analysis
-
-Gemini's output is combined with the application's own similarity/provenance logic rather than treating the LLM response alone as the final proof of ownership.
-
----
-
-## 🏗️ System Architecture
-
-```text
-                    ┌───────────────────┐
-                    │     Frontend      │
-                    │   Ghost Art UI    │
-                    └─────────┬─────────┘
-                              │
-                              ▼
-                    ┌───────────────────┐
-                    │      FastAPI      │
-                    │    Backend API     │
-                    └─────────┬─────────┘
-                              │
-                ┌─────────────┴─────────────┐
-                ▼                           ▼
-       ┌─────────────────┐         ┌─────────────────┐
-       │   Gemini API    │         │ Similarity /    │
-       │ Artwork Analysis│         │ Provenance Logic│
-       └────────┬────────┘         └────────┬────────┘
-                │                           │
-                └─────────────┬─────────────┘
-                              ▼
-                    ┌───────────────────┐
-                    │ Provenance /      │
-                    │ Artwork Records   │
-                    └─────────┬─────────┘
-                              │
-                              ▼
-                    ┌───────────────────┐
-                    │ Cryptographic     │
-                    │ Commitments / ZK   │
-                    │ Verification Layer │
-                    └───────────────────┘
-```
-
----
-
-## 🧰 Tech Stack
+## 🧠 Technology Stack
 
 ### Frontend
 
 * React
-* Vite
 * TypeScript
-* Modern responsive UI
+* Vite
+* Tailwind CSS
 
 ### Backend
 
 * Python
 * FastAPI
-* REST APIs
+* Uvicorn
 
 ### AI
 
 * Google Gemini API
-* Multimodal image understanding
+* `google-genai` SDK
 
-### Analysis
+### Image Analysis
 
-* Image similarity analysis
-* Visual feature comparison
-* Provenance graph representation
+* Perceptual Hashing (pHash)
+* SHA-256
 
-### Security & Privacy
+### Database
 
-* Cryptographic commitments
-* Zero-Knowledge proof concepts
+* SQLite
 
----
+### Development
 
-## 🔄 Application Flow
-
-```text
-Artist
-  │
-  ▼
-Upload Original Artwork
-  │
-  ▼
-Artwork Analysis
-  │
-  ▼
-Generate Digital Commitment
-  │
-  ▼
-Register Artwork
-  │
-  ▼
-Derivative Artwork Found
-  │
-  ▼
-Analyze Derivative
-  │
-  ▼
-Compare With Registered Artwork
-  │
-  ▼
-Similarity + Transformation Analysis
-  │
-  ▼
-Create Provenance Relationship
-  │
-  ▼
-Ownership Verification
-```
-
----
-
-## 📡 API Overview
-
-The backend exposes endpoints for artwork analysis and comparison.
-
-### Analyze Artwork
-
-```http
-POST /analyze-artwork
-```
-
-Accepts an artwork and returns an AI-generated analysis containing relevant visual and semantic information.
-
-### Compare Artworks
-
-```http
-POST /compare
-```
-
-Compares two artworks and returns similarity/provenance-related analysis.
-
-Example conceptual response:
-
-```json
-{
-  "similarity": 91,
-  "relationship": "Likely derivative",
-  "transformations": [
-    "Cropping",
-    "Color modification",
-    "Filtering"
-  ]
-}
-```
-
-> The similarity value is generated by the application's analysis pipeline and should be treated as an analytical signal, not absolute legal proof of ownership.
-
----
-
-## 🧪 Demo Scenario
-
-### Original
-
-An artist registers an original digital artwork.
-
-Ghost Art creates a cryptographic commitment associated with the artwork.
-
-### Derivative
-
-Someone uploads a modified version:
-
-```text
-Original
-   ↓
-Crop
-   ↓
-Color Change
-   ↓
-AI Enhancement
-   ↓
-Reposted Artwork
-```
-
-Ghost Art analyzes the derivative and compares it with registered artwork.
-
-The system can then present:
-
-* Similarity assessment
-* Detected transformations
-* Related original artwork
-* Provenance relationship
-* Ownership-verification status
+* Git
+* GitHub
 
 ---
 
 ## 📁 Project Structure
 
 ```text
-ghost-art/
-│
-├── frontend/
-│   ├── src/
-│   ├── public/
-│   └── package.json
+GHOST_ART/
 │
 ├── backend/
-│   ├── main.py
-│   ├── routes/
-│   ├── services/
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── database.py
+│   │   ├── fingerprint.py
+│   │   └── gemini_service.py
+│   │
+│   ├── tests/
+│   │   └── test_api.py
+│   │
 │   └── requirements.txt
 │
-├── README.md
-└── .env
+├── frontend/
+│   └── React + Vite application
+│
+├── data/
+│   └── uploads/
+│
+├── .env
+├── .env.example
+├── .gitignore
+└── README.md
 ```
-
-> The exact structure may evolve as the prototype develops.
 
 ---
 
-## ⚙️ Environment Variables
+## 🔌 API Endpoints
 
-Create a `.env` file in the backend:
+| Endpoint            | Method | Purpose                               |
+| ------------------- | ------ | ------------------------------------- |
+| `/health`           | GET    | Check whether the backend is running  |
+| `/register`         | POST   | Register an artwork                   |
+| `/trace`            | POST   | Find potential matching artworks      |
+| `/analyze-artwork`  | POST   | Analyze a single artwork using Gemini |
+| `/compare-artworks` | POST   | Compare two artworks using Gemini     |
+| `/docs`             | GET    | FastAPI Swagger API documentation     |
+
+---
+
+## 🔍 Main Trace Workflow
+
+The `/trace` endpoint is the primary workflow of GHOST ART.
+
+### Step 1 — Upload
+
+The user uploads an artwork.
+
+### Step 2 — Fingerprinting
+
+The backend calculates:
+
+```text
+SHA-256
++
+pHash
+```
+
+### Step 3 — Candidate Retrieval
+
+The pHash is compared with fingerprints stored in the database.
+
+Potential candidates are ranked based on perceptual similarity.
+
+### Step 4 — Gemini Analysis
+
+The strongest candidate can then be analyzed by Gemini to identify visual relationships such as:
+
+```text
+Similarities
+Differences
+Possible Cropping
+Possible Recoloring
+Other Visual Modifications
+```
+
+### Step 5 — Result
+
+The backend returns the fingerprint evidence and Gemini analysis together.
+
+---
+
+## 🛡️ Security
+
+The Gemini API key is stored in a local `.env` file.
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key
+GEMINI_API_KEY=your_api_key_here
 ```
 
-Never commit API keys or other secrets to GitHub.
+The API key is **never exposed to the frontend**.
+
+The `.env` file is excluded from Git using `.gitignore`.
+
+A `.env.example` file is provided as a safe configuration template.
 
 ---
 
-## 🚀 Running Locally
+## 🧪 Testing
 
-### 1. Clone the repository
+The backend contains automated API tests.
 
-```bash
-git clone <repository-url>
-cd ghost-art
-```
-
-### 2. Start the backend
+Run:
 
 ```bash
 cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
+python -m pytest tests
 ```
 
-The FastAPI server will be available at:
+The project also verifies Python source compilation using:
+
+```bash
+python -m py_compile app/main.py app/gemini_service.py app/database.py app/fingerprint.py
+```
+
+---
+
+## ▶️ Running the Backend
+
+Navigate to the backend:
+
+```bash
+cd backend
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Start FastAPI:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+The backend will be available at:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-Interactive API documentation:
+Swagger API documentation:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-### 3. Start the frontend
+---
 
-Open another terminal:
+## ▶️ Running the Frontend
+
+Navigate to the frontend:
 
 ```bash
 cd frontend
+```
+
+Install dependencies:
+
+```bash
 npm install
+```
+
+Start the development server:
+
+```bash
 npm run dev
 ```
 
-Then open the local Vite URL shown in the terminal.
+The frontend communicates with the FastAPI backend.
 
 ---
 
-## 🔒 Security Considerations
+## 🔬 Example Result
 
-Ghost Art is designed around privacy-preserving ownership verification.
+A successful trace can return information such as:
 
-Important principles:
-
-* Original artwork does not need to be publicly exposed for commitment-based verification.
-* API keys are stored using environment variables.
-* Cryptographic commitments can provide tamper-evident references.
-* ZK proofs can allow verification without revealing the underlying private information.
-
-The current hackathon prototype demonstrates the architecture and workflow; production deployment would require a formally implemented and audited ZK system, secure storage, authentication, and stronger provenance infrastructure.
-
----
-
-## 🎯 Hackathon MVP
-
-The prototype focuses on demonstrating the complete core flow:
-
-```text
-Upload
-  ↓
-Gemini Analysis
-  ↓
-Artwork Comparison
-  ↓
-Similarity Detection
-  ↓
-Transformation Detection
-  ↓
-Provenance Visualization
-  ↓
-Ownership Verification Concept
+```json
+{
+  "status": "success",
+  "message": "Found candidate match(es)",
+  "query_phash": "...",
+  "candidates": [
+    {
+      "id": "ART-001",
+      "title": "Original Artwork",
+      "creator": "Artist",
+      "similarity_score": 91.0,
+      "phash_distance": 6
+    }
+  ],
+  "gemini_analysis": {
+    "summary": "Strong visual similarities were identified.",
+    "similarities": [],
+    "differences": [],
+    "possible_modifications": []
+  },
+  "gemini_status": "completed"
+}
 ```
 
-The goal is to demonstrate how AI and privacy-preserving cryptography can work together to address digital artwork provenance.
+---
+
+## 🎯 Project Goal
+
+GHOST ART aims to make digital artwork provenance more transparent by combining **traditional image fingerprinting with multimodal AI analysis**.
+
+Rather than relying on a single similarity score, the system provides multiple layers of evidence and an explainable visual analysis to help users investigate potential artwork copies and modifications.
 
 ---
 
-## 🔮 Future Scope
+## ⚠️ Disclaimer
 
-* Automatic discovery of artwork reposts across platforms
-* Larger-scale visual similarity search
-* Persistent provenance graphs
-* On-chain artwork commitments
-* Production-grade ZK proof circuits
-* Artist identity and authentication
-* Browser extension for detecting derivative artwork
-* Marketplace and social-platform integrations
-* Advanced AI-generated-content detection
-* Decentralized provenance infrastructure
+GHOST ART provides technical similarity and visual analysis.
+
+It does **not** make legal determinations about copyright ownership, infringement, or whether an artwork has been stolen.
 
 ---
 
-## 👥 Team
+## 👻 GHOST ART
 
-**Ghost Art**
+### Trace the original. Understand the copy.
 
-Built for a hackathon to explore the intersection of:
+```
 
-**AI × Digital Art × Provenance × Privacy × Cryptography**
-
----
-
-## 📜 Disclaimer
-
-Ghost Art is a research and hackathon prototype. Similarity scores and AI-generated analyses are indicators for investigation and do not by themselves establish legal ownership, copyright infringement, or authorship.
-
----
-
-## ⭐ Vision
-
-> **Make digital art traceable without making artists sacrifice their privacy.**
-
-Ghost Art aims to give creators a way to understand where their work goes, how it changes, and how ownership can be verified without unnecessarily exposing the original.
+**One thing:** once the React frontend is actually finished, we should update the `Project Structure`, frontend setup, and screenshots section to match the **exact files/UI we end up with** rather than claiming anything the frontend doesn't implement yet.
+```
