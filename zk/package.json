@@ -1,0 +1,16 @@
+{
+  "name": "ghost-art-zk",
+  "version": "1.0.0",
+  "description": "Zero-Knowledge Proof Layer for GHOST_ART provenance verification",
+  "main": "generate_commitment.js",
+  "scripts": {
+    "commitment": "node generate_commitment.js",
+    "prove": "node generate_proof.js",
+    "verify": "node verify.js"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "snarkjs": "^0.7.5"
+  }
+}

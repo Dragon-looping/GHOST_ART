@@ -1,23 +1,36 @@
-# Environment variables
-.env
-
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.pytest_cache/
-.venv/
+*.pyc
+*.pyo
+
+# Python virtual environment
 venv/
-ENV/
 
-# Database and uploads
+# Environment/secrets
+.env
+.env.*
+data/.zk_vault.json
+
+# Local database
 data/*.db
-data/uploads/*
-!data/uploads/.gitkeep
 
-# IDE / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# Node dependencies
+node_modules/
+
+# Frontend build
+frontend/dist/
+
+# ZK temporary files
+zk/build/*.wtns
+data/uploads/*
+
+# ZK generated/setup artifacts
+zk/bin/
+zk/build/*.r1cs
+zk/build/*.sym
+zk/build/*_0000.zkey
+zk/build/pot*.ptau
+zk/build/proof.json
+zk/build/public.json
+zk/build/invalid_public.json
+zk/input.json

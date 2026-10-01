@@ -23,9 +23,15 @@ def init_db():
                 sha256 TEXT NOT NULL,
                 phash TEXT NOT NULL,
                 image_path TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                zk_commitment TEXT
             );
         """)
+        # Safe migration if table already existed without zk_commitment column
+        cursor.execute("PRAGMA table_info(artworks)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "zk_commitment" not in columns:
+            cursor.execute("ALTER TABLE artworks ADD COLUMN zk_commitment TEXT")
         conn.commit()
 
 
@@ -45,16 +51,25 @@ def generate_artwork_id() -> str:
         return f"ART-{count + 1:03d}"
 
 
-def save_artwork(artwork_id: str, title: str, creator: str, sha256: str, phash: str, image_path: str, created_at: str) -> dict:
+def save_artwork(
+    artwork_id: str,
+    title: str,
+    creator: str,
+    sha256: str,
+    phash: str,
+    image_path: str,
+    created_at: str,
+    zk_commitment: str | None = None
+) -> dict:
     """Insert a new artwork record into the database."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO artworks (id, title, creator, sha256, phash, image_path, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO artworks (id, title, creator, sha256, phash, image_path, created_at, zk_commitment)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (artwork_id, title, creator, sha256, phash, image_path, created_at)
+            (artwork_id, title, creator, sha256, phash, image_path, created_at, zk_commitment)
         )
         conn.commit()
 
@@ -65,7 +80,8 @@ def save_artwork(artwork_id: str, title: str, creator: str, sha256: str, phash: 
         "sha256": sha256,
         "phash": phash,
         "image_path": image_path,
-        "created_at": created_at
+        "created_at": created_at,
+        "zk_commitment": zk_commitment
     }
 
 
@@ -73,6 +89,33 @@ def get_all_artworks() -> list[dict]:
     """Retrieve all registered artwork records from SQLite database."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, title, creator, sha256, phash, image_path, created_at FROM artworks")
+        cursor.execute("PRAGMA table_info(artworks)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "zk_commitment" in columns:
+            cursor.execute("SELECT id, title, creator, sha256, phash, image_path, created_at, zk_commitment FROM artworks")
+        else:
+            cursor.execute("SELECT id, title, creator, sha256, phash, image_path, created_at FROM artworks")
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+def get_artwork_by_id(artwork_id: str) -> dict | None:
+    """Retrieve a single artwork record by its ID."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM artworks WHERE id = ?", (artwork_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def update_artwork_commitment(artwork_id: str, zk_commitment: str) -> bool:
+    """Update or backfill zk_commitment for an existing artwork record."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE artworks SET zk_commitment = ? WHERE id = ?",
+            (zk_commitment, artwork_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+

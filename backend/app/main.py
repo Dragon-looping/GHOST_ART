@@ -1,14 +1,20 @@
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from app.database import (
     UPLOADS_DIR,
     generate_artwork_id,
     get_all_artworks,
+    get_db_connection,
     init_db,
     save_artwork,
 )
@@ -19,6 +25,15 @@ from app.fingerprint import (
     compute_phash_distance,
 )
 from app.gemini_service import analyze_artwork_image, compare_artwork_images
+from app.zk_service import (
+    generate_commitment,
+    generate_zk_proof,
+    get_zk_status,
+    save_vault_secret,
+    verify_zk_proof,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -45,6 +60,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Ensure uploads directory exists and mount for static image serving
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+
 
 @app.get("/health")
 def health_check():
@@ -53,6 +72,30 @@ def health_check():
         "status": "ok",
         "message": "Ghost Art API is running"
     }
+
+
+@app.get("/artworks")
+def list_artworks():
+    """Retrieve all registered artworks."""
+    return {
+        "status": "success",
+        "artworks": get_all_artworks()
+    }
+
+
+@app.get("/artworks/{artwork_id}/image")
+def get_artwork_image(artwork_id: str):
+    """Serve the registered image file for a given artwork ID."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT image_path FROM artworks WHERE id = ?", (artwork_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Artwork not found")
+        img_path = Path(row["image_path"])
+        if not img_path.exists():
+            raise HTTPException(status_code=404, detail="Artwork image file not found on disk")
+        return FileResponse(img_path)
 
 
 @app.post("/register")
@@ -107,6 +150,21 @@ async def register_artwork(
             detail=f"Failed to save image file: {str(e)}"
         )
 
+    # Generate Zero-Knowledge commitment: Poseidon(fingerprint, secret) == commitment
+    zk_commitment = None
+    try:
+        zk_res = generate_commitment(fingerprint=phash_val)
+        zk_commitment = zk_res["commitment"]
+        # Save secret in server-side private vault ONLY (never stored in SQLite, never returned to frontend)
+        save_vault_secret(
+            artwork_id=artwork_id,
+            secret=zk_res["secret"],
+            fingerprint=zk_res["fingerprint"],
+            commitment=zk_commitment
+        )
+    except Exception as e:
+        logger.warning(f"ZK commitment generation skipped/failed for {artwork_id}: {e}")
+
     created_at = datetime.now(timezone.utc).isoformat()
     try:
         artwork_record = save_artwork(
@@ -116,7 +174,8 @@ async def register_artwork(
             sha256=sha256_hash,
             phash=phash_val,
             image_path=str(dest_path.as_posix()),
-            created_at=created_at
+            created_at=created_at,
+            zk_commitment=zk_commitment
         )
     except Exception as e:
         raise HTTPException(
@@ -184,6 +243,7 @@ async def trace_artwork(
             "sha256": art["sha256"],
             "phash": art["phash"],
             "created_at": art["created_at"],
+            "zk_commitment": art.get("zk_commitment"),
         })
 
     candidates.sort(key=lambda item: item["similarity_score"], reverse=True)
@@ -308,3 +368,93 @@ async def compare_artworks_endpoint(
         raise HTTPException(status_code=503, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Zero-Knowledge Proof Endpoints (Groth16 + Poseidon)
+# ---------------------------------------------------------------------------
+
+class ZKProveRequest(BaseModel):
+    artwork_id: str = Field(description="The ID of the registered reference artwork to prove.")
+    secret: str | None = Field(default=None, description="Optional private secret override if not using server vault.")
+
+
+class ZKProveResponse(BaseModel):
+    valid: bool
+    artwork_id: str
+    commitment: str
+    proof: dict[str, Any]
+    public_signals: list[str]
+    message: str
+
+
+class ZKVerifyRequest(BaseModel):
+    artwork_id: str | None = Field(default=None, description="The artwork ID to verify against SQLite commitment.")
+    commitment: str | None = Field(default=None, description="The expected Poseidon commitment if artwork_id not provided.")
+    proof: dict[str, Any] = Field(description="Groth16 proof object.")
+    public_signals: list[str] = Field(description="Public signals vector containing public commitment.")
+
+
+class ZKVerifyResponse(BaseModel):
+    valid: bool
+    artwork_id: str | None = None
+    commitment: str | None = None
+    message: str
+
+
+@app.get("/zk/status")
+def zk_status_endpoint():
+    """
+    Return status of the Zero-Knowledge subsystem, circuit artifacts,
+    and cryptographic keys.
+    """
+    return get_zk_status()
+
+
+@app.post("/zk/prove", response_model=ZKProveResponse)
+async def zk_prove_endpoint(req: ZKProveRequest):
+    """
+    Generate a Groth16 zero-knowledge proof proving knowledge of the registered artwork secret
+    without revealing the secret itself.
+    Formula: Poseidon(fingerprint, secret) == commitment
+    """
+    try:
+        res = generate_zk_proof(artwork_id=req.artwork_id, secret=req.secret)
+        return ZKProveResponse(
+            valid=True,
+            artwork_id=req.artwork_id,
+            commitment=res["commitment"],
+            proof=res["proof"],
+            public_signals=res["public_signals"],
+            message=res.get("message", "Zero-knowledge proof generated successfully")
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+    except FileNotFoundError as fnf:
+        raise HTTPException(status_code=503, detail=str(fnf))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate ZK proof: {str(e)}")
+
+
+@app.post("/zk/verify", response_model=ZKVerifyResponse)
+async def zk_verify_endpoint(req: ZKVerifyRequest):
+    """
+    Verify a Groth16 zero-knowledge proof against the verification key and registered commitment.
+    Does NOT leak the secret or private witness.
+    """
+    try:
+        res = verify_zk_proof(
+            proof=req.proof,
+            public_signals=req.public_signals,
+            artwork_id=req.artwork_id,
+            expected_commitment=req.commitment
+        )
+        return ZKVerifyResponse(
+            valid=res["valid"],
+            artwork_id=res.get("artwork_id"),
+            commitment=res.get("commitment"),
+            message=res["message"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"ZK verification error: {str(e)}")
+
