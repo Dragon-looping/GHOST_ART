@@ -126,8 +126,8 @@ export const VisualComparison: React.FC<VisualComparisonProps> = ({
                 <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
                   REGISTERED ARTWORK
                 </span>
-                <span className="text-xs text-slate-200 font-semibold truncate max-w-[180px]">
-                  {candidate.title}
+                <span className="text-xs text-slate-400 font-mono">
+                  {candidate.id}
                 </span>
               </div>
               <span className="text-[11px] font-mono text-cyan-400">MASTER REF</span>
@@ -136,7 +136,7 @@ export const VisualComparison: React.FC<VisualComparisonProps> = ({
             <div className="relative aspect-square rounded-xl overflow-hidden bg-black/80 border border-cyan-500/30 flex items-center justify-center p-3 group">
               <img
                 src={candidateImageUrl}
-                alt={candidate.title}
+                alt="Registered Artwork Reference"
                 className="w-full h-full object-contain filter group-hover:scale-105 transition-transform duration-300"
                 onError={(e) => {
                   const target = e.target as HTMLElement;
@@ -161,10 +161,6 @@ export const VisualComparison: React.FC<VisualComparisonProps> = ({
             {/* Candidate Specs Info */}
             <div className="p-3 rounded-xl bg-black/40 border border-white/[0.05] space-y-1.5 text-xs font-mono">
               <div className="flex justify-between items-center text-slate-400">
-                <span>Creator:</span>
-                <span className="text-slate-200 font-semibold">{candidate.creator}</span>
-              </div>
-              <div className="flex justify-between items-center text-slate-400">
                 <span>Ref pHash:</span>
                 <span className="text-purple-300 font-semibold truncate max-w-[200px]" title={candidate.phash}>
                   {candidate.phash}
@@ -186,7 +182,7 @@ export const VisualComparison: React.FC<VisualComparisonProps> = ({
               className="absolute inset-0 w-full h-full object-contain"
             />
             <div className="absolute top-3 right-3 px-2 py-1 rounded bg-black/80 backdrop-blur-md border border-cyan-500/30 text-[10px] font-mono text-cyan-300 z-10">
-              REGISTERED: {candidate.title}
+              REGISTERED REFERENCE: {candidate.id}
             </div>
 
             {/* Foreground Clipped Image: Query Artwork */}

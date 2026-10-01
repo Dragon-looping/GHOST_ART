@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, User, CheckCircle } from 'lucide-react';
+import { Calendar, CheckCircle } from 'lucide-react';
 import type { CandidateArtwork } from '../types/api';
 
 interface CandidateCardProps {
@@ -88,16 +88,6 @@ export const CandidateCard: React.FC<CandidateCardProps> = ({
           <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${badge.bg}`}>
             {badge.text}
           </span>
-        </div>
-      </div>
-
-      <div className="space-y-1 mb-3">
-        <h4 className="text-sm font-semibold text-slate-100 truncate">
-          {candidate.title}
-        </h4>
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
-          <User className="w-3 h-3 text-slate-500 shrink-0" />
-          <span className="truncate">{candidate.creator}</span>
         </div>
       </div>
 

@@ -109,10 +109,10 @@ export const ResultsDashboard: React.FC<ResultsDashboardProps> = ({
                 </div>
 
                 <h2 className="text-2xl font-extrabold text-white tracking-tight">
-                  Matched Reference: {topCandidate.title}
+                  Matched Reference Record: {topCandidate.id}
                 </h2>
-                <p className="text-xs text-slate-300 mt-1">
-                  Master record registered by <span className="font-semibold text-white">{topCandidate.creator}</span> ({topCandidate.id})
+                <p className="text-xs text-slate-300 mt-1 font-mono">
+                  Cryptographic reference record registered in provenance ledger
                 </p>
               </div>
             </div>
